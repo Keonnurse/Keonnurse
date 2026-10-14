@@ -4,4 +4,4 @@
 
 [esp32-wireless-scoreboard](https://github.com/Keonnurse/esp32-wireless-scoreboard) · [Website](https://github.com/Keonnurse/Website) · [keonkn202@gmail.com](mailto:keonkn202@gmail.com)
 
-<img src="assets/contributions.svg" width="100%" alt="keon@github ~ $ ./contributions.sh: contribution calendar, current streak and the daily commit goal" />
+<img src="assets/contributions.svg" width="100%" alt="Contribution calendar for the last year" />

@@ -201,60 +201,37 @@ async function fetchCalendar() {
   return { days, total: total ? +total.replace(/,/g, "") : days.reduce((a, d) => a + d.count, 0) };
 }
 
-function streaks(days) {
-  let longest = 0, run = 0;
-  for (const d of days) { run = d.count > 0 ? run + 1 : 0; longest = Math.max(longest, run); }
-  let i = days.length - 1, current = 0;
-  if (i >= 0 && days[i].count === 0) i--; // today still in progress, don't break the streak yet
-  for (; i >= 0 && days[i].count > 0; i--) current++;
-  return { current, longest };
-}
-
 function buildContributions({ days, total }) {
-  const X = 24, CELL = 11, GAP = 3, STEP = CELL + GAP, GX = X + 30;
-  let body = "";
-  let [p, t] = prompt(X, 62, "./contributions.sh", 300);
-  body += p;
-
-  const GY = 100;
+  // Plain copy of GitHub's own "N contributions in the last year" card. No terminal frame, no animation.
+  const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif";
+  const CELL = 12, GAP = 3, STEP = CELL + GAP, BX = 1, BY = 36, GX = BX + 46, GY = BY + 38;
   const dow0 = new Date(days[0].date + "T00:00:00Z").getUTCDay();
+  const cols = Math.ceil((days.length + dow0) / 7);
+  const BW = W - 2, BH = 7 * STEP + 78;
+  let body = `<rect width="${W}" height="${BY + BH + 2}" fill="${C.bg}"/>
+<text x="${BX + 8}" y="22" font-family="${SANS}" font-size="16" fill="${C.bright}">${total.toLocaleString("en-US")} contribution${total === 1 ? "" : "s"} in the last year</text>
+<rect x="${BX + 0.5}" y="${BY + 0.5}" width="${BW - 1}" height="${BH}" rx="6" fill="${C.bg}" stroke="${C.border}"/>`;
   let lastMonth = -1, lastLabelCol = -9;
   days.forEach((d, i) => {
     const col = Math.floor((i + dow0) / 7), row = (i + dow0) % 7;
     const month = +d.date.slice(5, 7) - 1;
     if (row === 0 || i === 0) {
       if (month !== lastMonth && col - lastLabelCol >= 3) {
-        body += "\n" + line(GX + col * STEP, GY - 8, MONTHS[month], t, C.dim, `font-size="10"`).replace(`font-size="${FS}" `, "");
+        body += `\n<text x="${GX + col * STEP}" y="${GY - 9}" font-family="${SANS}" font-size="12" fill="${C.text}">${MONTHS[month]}</text>`;
         lastLabelCol = col;
       }
       lastMonth = month;
     }
-    body += `\n<rect class="f" style="animation-delay:${s(t + col * 18)}" x="${GX + col * STEP}" y="${GY + row * STEP}" width="${CELL}" height="${CELL}" rx="2" fill="${LEVEL[d.level] ?? LEVEL[0]}"><title>${d.count} on ${d.date}</title></rect>`;
+    body += `\n<rect x="${GX + col * STEP}" y="${GY + row * STEP}" width="${CELL}" height="${CELL}" rx="2" fill="${LEVEL[d.level] ?? LEVEL[0]}" stroke="rgba(240,246,252,0.05)"><title>${d.count} on ${d.date}</title></rect>`;
   });
   for (const [r, name] of [[1, "Mon"], [3, "Wed"], [5, "Fri"]])
-    body += "\n" + line(X, GY + r * STEP + 9, name, t, C.dim).replace(`font-size="${FS}"`, `font-size="10"`);
-
-  const cols = Math.ceil((days.length + dow0) / 7);
-  t += cols * 18 + 150;
-  let y = GY + 7 * STEP + 26;
-  const { current, longest } = streaks(days);
-  const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
-  body += "\n" + line(X, y, `${plural(total, "contribution")} in the last year`, t, C.text);
-  y += LH; t += 150;
-
-  // the goal: a commit every day. Last 7 days as boxes.
-  const week = days.slice(-7);
-  const hit = week.filter((d) => d.count > 0).length;
-  body += `\n<text class="f" style="animation-delay:${s(t)}" x="${X}" y="${y}" font-size="${FS}" xml:space="preserve"><tspan fill="${C.dim}">streak </tspan><tspan fill="${C.green}" font-weight="700">${plural(current, "day")}</tspan><tspan fill="${C.dim}">   longest </tspan><tspan fill="${C.text}">${plural(longest, "day")}</tspan><tspan fill="${C.dim}">   goal </tspan><tspan fill="${C.text}">commit every day</tspan></text>`;
-  y += LH; t += 150;
-  body += "\n" + line(X, y, "last 7", t, C.dim);
-  week.forEach((d, i) => {
-    body += `\n<rect class="f" style="animation-delay:${s(t + i * 80)}" x="${X + 7 * CW + i * 18}" y="${y - 10}" width="12" height="12" rx="2" fill="${d.count > 0 ? LEVEL[4] : "none"}" stroke="${d.count > 0 ? LEVEL[4] : C.border}"/>`;
-  });
-  body += "\n" + line(X + 7 * CW + 7 * 18 + 8, y, `${hit}/7`, t + 600, hit === 7 ? C.green : C.text);
-
-  const updated = days[days.length - 1].date;
-  return frame(`${USER}@${HOST}: ~ · updated ${updated}`, y + 24, body);
+    body += `\n<text x="${BX + 14}" y="${GY + r * STEP + 10}" font-family="${SANS}" font-size="12" fill="${C.text}">${name}</text>`;
+  const ly = GY + 7 * STEP + 22, lx = GX + cols * STEP - 5 * STEP - 34;
+  body += `\n<text x="${lx - 8}" y="${ly + 10}" text-anchor="end" font-family="${SANS}" font-size="12" fill="${C.dim}">Less</text>`;
+  LEVEL.forEach((c, i) => (body += `\n<rect x="${lx + i * STEP}" y="${ly}" width="${CELL}" height="${CELL}" rx="2" fill="${c}" stroke="rgba(240,246,252,0.05)"/>`));
+  body += `\n<text x="${lx + 5 * STEP + 4}" y="${ly + 10}" font-family="${SANS}" font-size="12" fill="${C.dim}">More</text>`;
+  const h = BY + BH + 2;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${h}" viewBox="0 0 ${W} ${h}">\n${body}\n</svg>\n`;
 }
 
 writeFileSync(join(OUT, "whoami.svg"), buildWhoami());
