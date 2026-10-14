@@ -175,6 +175,94 @@ function buildProjects() {
   return frame(`${USER}@${HOST}: ~/projects`, y + 22, body);
 }
 
+// ---------------------------------------------------------------- contributions.svg
+// Reads GitHub's public contribution calendar (no token). Run daily by the workflow.
+const GH_USER = "Keonnurse";
+const LEVEL = ["#161b22", "#0e4429", "#006d32", "#26a641", "#39d353"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+async function fetchCalendar() {
+  const res = await fetch(`https://github.com/users/${GH_USER}/contributions`, { headers: { "User-Agent": "profile-readme" } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const html = await res.text();
+  const counts = {};
+  for (const m of html.matchAll(/<tool-tip[^>]*\bfor="([^"]+)"[^>]*>([^<]*)<\/tool-tip>/g)) {
+    const n = m[2].match(/^(\d+) contribution/);
+    counts[m[1]] = n ? +n[1] : 0;
+  }
+  const days = [];
+  for (const m of html.matchAll(/<td\b[^>]*\bdata-date="[^"]+"[^>]*>/g)) {
+    const tag = m[0], attr = (k) => (tag.match(new RegExp(`\\b${k}="([^"]*)"`)) || [])[1];
+    days.push({ date: attr("data-date"), level: +attr("data-level"), count: counts[attr("id")] ?? 0 });
+  }
+  if (days.length < 300) throw new Error(`only ${days.length} days parsed, page format changed?`);
+  days.sort((a, b) => a.date.localeCompare(b.date));
+  const total = (html.replace(/\s+/g, " ").match(/([\d,]+) contributions? in the last year/) || [])[1];
+  return { days, total: total ? +total.replace(/,/g, "") : days.reduce((a, d) => a + d.count, 0) };
+}
+
+function streaks(days) {
+  let longest = 0, run = 0;
+  for (const d of days) { run = d.count > 0 ? run + 1 : 0; longest = Math.max(longest, run); }
+  let i = days.length - 1, current = 0;
+  if (i >= 0 && days[i].count === 0) i--; // today still in progress, don't break the streak yet
+  for (; i >= 0 && days[i].count > 0; i--) current++;
+  return { current, longest };
+}
+
+function buildContributions({ days, total }) {
+  const X = 24, CELL = 11, GAP = 3, STEP = CELL + GAP, GX = X + 30;
+  let body = "";
+  let [p, t] = prompt(X, 62, "./contributions.sh", 300);
+  body += p;
+
+  const GY = 100;
+  const dow0 = new Date(days[0].date + "T00:00:00Z").getUTCDay();
+  let lastMonth = -1, lastLabelCol = -9;
+  days.forEach((d, i) => {
+    const col = Math.floor((i + dow0) / 7), row = (i + dow0) % 7;
+    const month = +d.date.slice(5, 7) - 1;
+    if (row === 0 || i === 0) {
+      if (month !== lastMonth && col - lastLabelCol >= 3) {
+        body += "\n" + line(GX + col * STEP, GY - 8, MONTHS[month], t, C.dim, `font-size="10"`).replace(`font-size="${FS}" `, "");
+        lastLabelCol = col;
+      }
+      lastMonth = month;
+    }
+    body += `\n<rect class="f" style="animation-delay:${s(t + col * 18)}" x="${GX + col * STEP}" y="${GY + row * STEP}" width="${CELL}" height="${CELL}" rx="2" fill="${LEVEL[d.level] ?? LEVEL[0]}"><title>${d.count} on ${d.date}</title></rect>`;
+  });
+  for (const [r, name] of [[1, "Mon"], [3, "Wed"], [5, "Fri"]])
+    body += "\n" + line(X, GY + r * STEP + 9, name, t, C.dim).replace(`font-size="${FS}"`, `font-size="10"`);
+
+  const cols = Math.ceil((days.length + dow0) / 7);
+  t += cols * 18 + 150;
+  let y = GY + 7 * STEP + 26;
+  const { current, longest } = streaks(days);
+  const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  body += "\n" + line(X, y, `${plural(total, "contribution")} in the last year`, t, C.text);
+  y += LH; t += 150;
+
+  // the goal: a commit every day. Last 7 days as boxes.
+  const week = days.slice(-7);
+  const hit = week.filter((d) => d.count > 0).length;
+  body += `\n<text class="f" style="animation-delay:${s(t)}" x="${X}" y="${y}" font-size="${FS}" xml:space="preserve"><tspan fill="${C.dim}">streak </tspan><tspan fill="${C.green}" font-weight="700">${plural(current, "day")}</tspan><tspan fill="${C.dim}">   longest </tspan><tspan fill="${C.text}">${plural(longest, "day")}</tspan><tspan fill="${C.dim}">   goal </tspan><tspan fill="${C.text}">commit every day</tspan></text>`;
+  y += LH; t += 150;
+  body += "\n" + line(X, y, "last 7", t, C.dim);
+  week.forEach((d, i) => {
+    body += `\n<rect class="f" style="animation-delay:${s(t + i * 80)}" x="${X + 7 * CW + i * 18}" y="${y - 10}" width="12" height="12" rx="2" fill="${d.count > 0 ? LEVEL[4] : "none"}" stroke="${d.count > 0 ? LEVEL[4] : C.border}"/>`;
+  });
+  body += "\n" + line(X + 7 * CW + 7 * 18 + 8, y, `${hit}/7`, t + 600, hit === 7 ? C.green : C.text);
+
+  const updated = days[days.length - 1].date;
+  return frame(`${USER}@${HOST}: ~ · updated ${updated}`, y + 24, body);
+}
+
 writeFileSync(join(OUT, "whoami.svg"), buildWhoami());
 writeFileSync(join(OUT, "projects.svg"), buildProjects());
+try {
+  writeFileSync(join(OUT, "contributions.svg"), buildContributions(await fetchCalendar()));
+} catch (e) {
+  console.error(`contributions skipped, kept the old SVG: ${e.message}`);
+  process.exitCode = 1;
+}
 console.log(`built ${OUT}`);
