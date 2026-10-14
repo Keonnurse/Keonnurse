@@ -8,6 +8,7 @@ param(
   [switch]$Invert,
   [switch]$Equalize,
   [switch]$Edges,
+  [switch]$FullShade,             # with -Edges: shade non-edge cells with the full ramp instead of 8 levels
   [double]$EdgeThreshold = 0.3,  # fraction of the strongest cell edge that counts as a line
   [double]$CropTop = 0.0,        # fraction of height to trim from the top before the square crop
   [double]$BgCutoff = 0.0,       # raw luminance at or above this becomes blank (white backgrounds), 0 = off
@@ -102,7 +103,7 @@ if ($Edges) {
     $a = $Jxx[$y, $x]; $b = $Jyy[$y, $x]
     $m = [Math]::Sqrt($a + $b); $mag[$y, $x] = $m; if ($m -gt $maxMag) { $maxMag = $m }
   } }
-  $shade = " .:-=+*#"
+  $shade = if ($FullShade) { $ramp } else { " .:-=+*#" }
   $lines = for ($y = 0; $y -lt $rows; $y++) {
     $sb = New-Object System.Text.StringBuilder
     for ($x = 0; $x -lt $Cols; $x++) {

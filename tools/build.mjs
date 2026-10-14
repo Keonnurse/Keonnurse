@@ -104,7 +104,10 @@ function buildWhoami() {
     ? readFileSync(portraitPath, "utf8").replace(/\r/g, "").split("\n").filter((r, i, a) => i < a.length - 1 || r)
     : null;
 
-  const PX = 24, PY = 84, AFS = 6, ACW = 3.6, ALH = 6.86; // portrait geometry (ACW/ALH = 0.525, matches ascii.ps1)
+  // portrait geometry: fixed on-screen width, glyph size follows the column count (ACW/ALH = 0.525, matches ascii.ps1)
+  const PX = 24, PY = 84, PORTRAIT_W = 320;
+  const pcols = rows ? Math.max(...rows.map((r) => r.length)) : 88;
+  const ACW = PORTRAIT_W / pcols, ALH = ACW / 0.525, AFS = ACW / 0.6;
   let body = "";
   let [p, t] = prompt(PX, 62, "whoami", 300);
   body += p;
