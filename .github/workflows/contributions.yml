@@ -2,15 +2,13 @@
 # Runs on GitHub's servers, not your PC. Bot commits do not count as your contributions.
 name: contributions
 
-# Paused 2026-10-14: the contributions card is off the README for now.
-# To bring it back, re-add the <img> line in README.md and uncomment the triggers below.
 on:
-  # schedule:
-  #   - cron: "0 6,12,18 * * *"   # 00:00, 06:00, 12:00 Edmonton (MDT)
-  workflow_dispatch:              # "Run workflow" button on the Actions tab
-  # push:
-  #   branches: [main]
-  #   paths: ["tools/**", ".github/workflows/**"]
+  schedule:
+    - cron: "0 6,12,18 * * *"   # 00:00, 06:00, 12:00 Edmonton (MDT)
+  workflow_dispatch:            # "Run workflow" button on the Actions tab
+  push:
+    branches: [main]
+    paths: ["tools/**", ".github/workflows/**"]
 
 permissions:
   contents: write
