@@ -40,7 +40,7 @@ const STACK = [
 const C = {
   bg: "#0d1117", bar: "#161b22", border: "#30363d",
   text: "#c9d1d9", dim: "#8b949e", bright: "#f0f6fc",
-  green: "#3fb950", blue: "#58a6ff", ascii: "#3fb950",
+  green: "#3fb950", blue: "#58a6ff", ascii: "#e6edf3",
 };
 const FONT = "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace";
 const FS = 13;            // body font size
